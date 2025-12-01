@@ -1,6 +1,6 @@
+version: '3.8'
 
 services:
-  # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
     container_name: taxiwatch_postgres
@@ -12,13 +12,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
-  # Redis Cache & Message Broker
   redis:
     image: redis:7-alpine
     container_name: taxiwatch_redis
@@ -26,123 +20,26 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
-  # Django Backend API
   backend:
     build:
-      context: ./core
+      context: ./backend
       dockerfile: Dockerfile
     container_name: taxiwatch_backend
-    command: uv run python manage.py runserver 0.0.0.0:8000 --noreload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
-      - ./core:/app
-      - media_files:/app/media
+      - ./backend:/app
     ports:
       - "8000:8000"
     environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/taxiwatch
+      - REDIS_URL=redis://redis:6379/0
       - DEBUG=True
-      - SECRET_KEY=dev-secret-key-change-in-production
-      - DB_ENGINE=django.db.backends.postgresql
-      - DB_NAME=taxiwatch
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  # Celery Worker for Background Tasks
-  celery_worker:
-    build:
-      context: ./core
-      dockerfile: Dockerfile
-    container_name: taxiwatch_celery_worker
-    command: uv run celery -A taxiwatch worker -l info
-    volumes:
-      - ./core:/app
-      - media_files:/app/media
-    environment:
-      - DEBUG=True
-      - SECRET_KEY=dev-secret-key-change-in-production
-      - DB_ENGINE=django.db.backends.postgresql
-      - DB_NAME=taxiwatch
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  # Celery Beat for Scheduled Tasks
-  celery_beat:
-    build:
-      context: ./core
-      dockerfile: Dockerfile
-    container_name: taxiwatch_celery_beat
-    command: uv run celery -A taxiwatch beat -l info
-    volumes:
-      - ./core:/app
-    environment:
-      - DEBUG=True
-      - SECRET_KEY=dev-secret-key-change-in-production
-      - DB_ENGINE=django.db.backends.postgresql
-      - DB_NAME=taxiwatch
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  # Next.js Frontend
-  # Temporarily disabled due to network/firewall blocking Docker Hub
-  # Run frontend locally with: cd ui && npm install && npm run dev
-  # frontend:
-  #   build:
-  #     context: ./ui
-  #     dockerfile: Dockerfile
-  #   container_name: taxiwatch_frontend
-  #   command: npm run dev
-  #   volumes:
-  #     - ./ui:/app
-  #     - /app/node_modules
-  #     - /app/.next
-  #   ports:
-  #     - "3000:3000"
-  #   environment:
-  #     - NODE_ENV=development
-  #     - NEXT_PUBLIC_API_URL=http://localhost:8000
-  #   depends_on:
-  #     - backend
+      - postgres
+      - redis
 
 volumes:
   postgres_data:
   redis_data:
-  media_files:

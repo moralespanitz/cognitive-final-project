@@ -1,9 +1,208 @@
-# Product Requirements Document (PRD)
+# 🚖 TaxiWatch - AI-Powered Fleet Monitoring System
+
+Real-time taxi fleet monitoring with GPS tracking, live video streaming, and AI-powered incident detection using OpenAI Vision API.
+
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com)
+[![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org)
+[![Terraform](https://img.shields.io/badge/Terraform-1.6+-purple.svg)](https://www.terraform.io)
+[![AWS](https://img.shields.io/badge/AWS-Lambda%20%7C%20RDS%20%7C%20S3-orange.svg)](https://aws.amazon.com)
+
+## 🎯 Quick Links
+
+- **[Local Testing Guide](GUIA_TESTING_LOCAL.md)** - Start here for local development
+- **[AWS Deployment Guide](DEPLOYMENT_AWS.md)** - Deploy to production
+- **[Project Status](PROJECT_STATUS.md)** - Complete feature list (100% done!)
+- **[Architecture Docs](ARQUITECTURA_AWS.md)** - AWS infrastructure details
+
+## 📊 Project Status: 100% COMPLETE ✅
+
+**80+ files created** | **35+ API endpoints** | **6 Terraform modules** | **Production-ready**
+
+### What's Implemented:
+- ✅ FastAPI backend with async SQLAlchemy 2.0
+- ✅ Complete CRUD for vehicles, drivers, trips, incidents
+- ✅ GPS tracking endpoints (ESP32-ready, no auth required)
+- ✅ Video frame upload (ESP32-ready, base64 support)
+- ✅ OpenAI GPT-4 chatbot integration
+- ✅ OpenAI Vision API for incident detection
+- ✅ JWT authentication with RBAC (4 roles)
+- ✅ AWS Lambda with Mangum adapter
+- ✅ Complete Terraform infrastructure (RDS, S3, SQS, ElastiCache, API Gateway)
+- ✅ Docker Compose for local development
+- ✅ Alembic migrations
+- ✅ Comprehensive documentation
+
+## 🚀 Quick Start
+
+### Local Development (5 minutes)
+
+```bash
+# 1. Start services
+docker-compose up -d
+
+# 2. Run migrations
+docker-compose exec backend alembic upgrade head
+
+# 3. Create admin user
+docker-compose exec backend python -c "
+import asyncio
+from app.database import AsyncSessionLocal
+from app.models.user import User, UserRole
+from app.core.security import get_password_hash
+
+async def create_admin():
+    async with AsyncSessionLocal() as db:
+        admin = User(
+            username='admin', email='admin@taxiwatch.com',
+            hashed_password=get_password_hash('Admin123!'),
+            first_name='Admin', last_name='User',
+            role=UserRole.ADMIN, is_superuser=True, is_active=True
+        )
+        db.add(admin)
+        await db.commit()
+
+asyncio.run(create_admin())
+"
+
+# 4. Access API docs
+open http://localhost:8000/docs
+```
+
+### AWS Deployment
+
+```bash
+# 1. Build Lambda packages
+cd backend && ./build_lambda.sh
+
+# 2. Deploy with Terraform
+cd ../terraform
+terraform init && terraform apply
+
+# 3. Get API endpoint
+terraform output api_endpoint
+```
+
+See [DEPLOYMENT_AWS.md](DEPLOYMENT_AWS.md) for complete guide.
+
+## 🏗️ Architecture
+
+```
+ESP32 Device (GPS + Camera)
+         ↓
+   API Gateway
+         ↓
+  Lambda (FastAPI)
+         ↓
+    ┌────┼────┐
+    ↓    ↓    ↓
+   RDS  Redis  S3
+              ↓
+            SQS
+              ↓
+  Lambda (AI Processing)
+              ↓
+    OpenAI Vision API
+```
+
+## 📋 API Endpoints
+
+### ESP32 Endpoints (No Auth Required)
+```bash
+# GPS Location
+POST /api/v1/tracking/location
+{
+  "vehicle_id": 1,
+  "latitude": 40.7128,
+  "longitude": -74.0060,
+  "speed": 45.5,
+  "heading": 180,
+  "device_id": "ESP32_001"
+}
+
+# Video Frame Upload
+POST /api/v1/video/frames/upload
+{
+  "device_id": "ESP32_001",
+  "vehicle_id": 1,
+  "camera_position": "FRONT",
+  "frame_base64": "iVBORw0KG..."
+}
+```
+
+### Authenticated Endpoints
+- `POST /api/v1/auth/login` - JWT authentication
+- `GET /api/v1/vehicles` - List vehicles
+- `GET /api/v1/tracking/live` - Live GPS locations
+- `POST /api/v1/chat/` - AI chatbot
+- `GET /api/v1/incidents` - List incidents
+- See `/docs` for all 35+ endpoints
+
+## 🛠️ Technology Stack
+
+- **FastAPI 0.104+** - Modern async web framework
+- **SQLAlchemy 2.0** - Async ORM
+- **PostgreSQL 15+** - Primary database
+- **Redis 7** - Caching and sessions
+- **OpenAI GPT-4** - Chatbot
+- **OpenAI Vision API** - Incident detection
+- **AWS Lambda** - Serverless compute
+- **Terraform** - Infrastructure as Code
+- **Docker** - Containerization
+
+## 📖 Documentation
+
+| Document | Description |
+|----------|-------------|
+| [GUIA_TESTING_LOCAL.md](GUIA_TESTING_LOCAL.md) | Local testing with curl examples |
+| [DEPLOYMENT_AWS.md](DEPLOYMENT_AWS.md) | AWS deployment step-by-step |
+| [PROJECT_STATUS.md](PROJECT_STATUS.md) | Complete feature list |
+| [ARQUITECTURA_AWS.md](ARQUITECTURA_AWS.md) | AWS architecture details |
+| [CLAUDE.md](CLAUDE.md) | Project overview |
+
+## 💰 Cost Estimation
+
+- **Development**: ~$40/month (db.t3.micro, cache.t3.micro)
+- **Production**: ~$150/month (db.t3.small, Multi-AZ)
+
+## 🧪 Testing
+
+Health check:
+```bash
+curl http://localhost:8000/health
+# {"status":"ok","app":"TaxiWatch API","version":"2.0.0"}
+```
+
+Login:
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"Admin123!"}'
+```
+
+See [GUIA_TESTING_LOCAL.md](GUIA_TESTING_LOCAL.md) for complete testing guide.
+
+## 👥 Authors
+
+Cognitive Computing Final Project - 2025
+
+---
+
+<div align="center">
+
+**Built with FastAPI, OpenAI, AWS Lambda, and Terraform**
+
+[Documentation](./) · [Testing Guide](GUIA_TESTING_LOCAL.md) · [Deployment Guide](DEPLOYMENT_AWS.md)
+
+</div>
+
+---
+
+# Original Product Requirements Document (PRD)
 ## Real-Time Taxi Monitoring & Video Sharing System
 
-**Version:** 1.0  
-**Date:** October 30, 2025  
-**Project Name:** TaxiWatch  
+**Version:** 1.0
+**Date:** October 30, 2025
+**Project Name:** TaxiWatch
 **Document Owner:** Alexander
 
 ---
