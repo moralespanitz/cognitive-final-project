@@ -38,9 +38,9 @@ output "db_endpoint" {
   value       = module.rds.db_endpoint
 }
 
-output "db_name" {
-  description = "Database name"
-  value       = module.rds.db_name
+output "db_address" {
+  description = "Database address"
+  value       = module.rds.db_address
 }
 
 # ElastiCache

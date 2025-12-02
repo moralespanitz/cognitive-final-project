@@ -221,6 +221,11 @@ async def get_trip_ws_stats():
 #     logger.info("SQLAdmin initialized at /admin")
 
 
+# AWS Lambda handler using Mangum
+from mangum import Mangum
+handler = Mangum(app, lifespan="off")
+
+
 if __name__ == "__main__":
     import uvicorn
 

@@ -75,3 +75,15 @@ services:
 volumes:
   postgres_data:
   redis_data:
+
+  camera_simulator:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: sh -c "pip install -q Pillow aiohttp && python -m app.scripts.camera_simulator"
+    depends_on:
+      - backend
+    environment:
+      - BACKEND_URL=http://backend:8000
+    networks:
+      - default

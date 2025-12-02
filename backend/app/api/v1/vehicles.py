@@ -113,6 +113,24 @@ async def update_vehicle(
     return vehicle
 
 
+@router.delete("/vehicles/{vehicle_id}", status_code=204)
+async def delete_vehicle(
+    vehicle_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_manager_user)
+):
+    """Delete vehicle."""
+    stmt = select(Vehicle).where(Vehicle.id == vehicle_id)
+    result = await db.execute(stmt)
+    vehicle = result.scalar_one_or_none()
+
+    if not vehicle:
+        raise NotFoundException(detail="Vehicle not found")
+
+    await db.delete(vehicle)
+    await db.commit()
+
+
 # Driver Endpoints
 @router.post("/drivers", response_model=DriverResponse, status_code=201)
 async def create_driver(
