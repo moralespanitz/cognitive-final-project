@@ -40,6 +40,38 @@ services:
       - postgres
       - redis
 
+  frontend:
+    image: node:20-alpine
+    container_name: taxiwatch_frontend
+    working_dir: /app
+    command: sh -c "corepack enable && pnpm install && pnpm dev"
+    volumes:
+      - ./ui:/app
+      - /app/node_modules
+      - /app/.next
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+    depends_on:
+      - backend
+
+  gps_simulator:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: taxiwatch_gps_simulator
+    command: python -m app.scripts.gps_simulator
+    volumes:
+      - ./backend:/app
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/taxiwatch
+    depends_on:
+      - backend
+      - postgres
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:

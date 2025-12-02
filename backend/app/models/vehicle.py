@@ -27,10 +27,13 @@ class VehicleStatus(str, enum.Enum):
 
 class TripStatus(str, enum.Enum):
     """Trip status enumeration."""
-    SCHEDULED = "SCHEDULED"
-    IN_PROGRESS = "IN_PROGRESS"
+    REQUESTED = "REQUESTED"  # Customer requested, waiting for driver
+    ACCEPTED = "ACCEPTED"  # Driver accepted, heading to pickup
+    ARRIVED = "ARRIVED"  # Driver at pickup location
+    IN_PROGRESS = "IN_PROGRESS"  # Trip started, passenger onboard
     COMPLETED = "COMPLETED"
     CANCELLED = "CANCELLED"
+    SCHEDULED = "SCHEDULED"  # For pre-scheduled trips
 
 
 class Driver(Base):
@@ -100,16 +103,20 @@ class Trip(Base):
     __tablename__ = "trips"
 
     id = Column(Integer, primary_key=True, index=True)
-    vehicle_id = Column(Integer, ForeignKey("vehicles.id", ondelete="CASCADE"), nullable=False)
-    driver_id = Column(Integer, ForeignKey("drivers.id", ondelete="CASCADE"), nullable=False)
-    start_time = Column(DateTime(timezone=True), nullable=False)
+    customer_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    vehicle_id = Column(Integer, ForeignKey("vehicles.id", ondelete="CASCADE"))
+    driver_id = Column(Integer, ForeignKey("drivers.id", ondelete="CASCADE"))
+    start_time = Column(DateTime(timezone=True))
     end_time = Column(DateTime(timezone=True))
-    start_location = Column(JSON, nullable=False)  # {lat, lng, address}
-    end_location = Column(JSON)  # {lat, lng, address}
+    pickup_location = Column(JSON, nullable=False)  # {lat, lng, address}
+    destination = Column(JSON, nullable=False)  # {lat, lng, address}
     distance = Column(Numeric(10, 2), default=0.00)  # kilometers
     duration = Column(Integer, default=0)  # minutes
-    status = Column(SQLEnum(TripStatus), default=TripStatus.SCHEDULED, nullable=False)
+    status = Column(SQLEnum(TripStatus), default=TripStatus.REQUESTED, nullable=False)
     fare = Column(Numeric(10, 2), default=0.00)
+    estimated_fare = Column(Numeric(10, 2), default=0.00)
+    identity_verified = Column(Boolean, default=False)  # True if customer verified identity before trip
+    verification_score = Column(Integer)  # Similarity score from face verification (0-100)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

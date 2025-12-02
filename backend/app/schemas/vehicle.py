@@ -84,38 +84,56 @@ class VehicleResponse(VehicleBase):
 
 
 # Trip Schemas
+class TripRequest(BaseModel):
+    """Customer trip request."""
+    pickup_location: dict  # {lat, lng, address}
+    destination: dict  # {lat, lng, address}
+    verification_image: Optional[str] = None  # Base64 encoded verification image
+
+
 class TripBase(BaseModel):
     """Base trip schema."""
-    vehicle_id: int
-    driver_id: int
-    start_location: dict  # {lat, lng, address}
-    status: TripStatus = TripStatus.SCHEDULED
+    pickup_location: dict
+    destination: dict
+    status: TripStatus = TripStatus.REQUESTED
 
 
 class TripCreate(TripBase):
     """Schema for creating a trip."""
-    start_time: datetime
+    customer_id: Optional[int] = None
+    vehicle_id: Optional[int] = None
+    driver_id: Optional[int] = None
 
 
 class TripUpdate(BaseModel):
     """Schema for updating a trip."""
+    vehicle_id: Optional[int] = None
+    driver_id: Optional[int] = None
+    start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
-    end_location: Optional[dict] = None
     distance: Optional[Decimal] = None
     duration: Optional[int] = None
     status: Optional[TripStatus] = None
     fare: Optional[Decimal] = None
 
 
-class TripResponse(TripBase):
+class TripResponse(BaseModel):
     """Schema for trip response."""
     id: int
-    start_time: datetime
+    customer_id: Optional[int] = None
+    vehicle_id: Optional[int] = None
+    driver_id: Optional[int] = None
+    pickup_location: dict
+    destination: dict
+    start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
-    end_location: Optional[dict] = None
     distance: Decimal
     duration: int
+    status: TripStatus
     fare: Decimal
+    estimated_fare: Decimal
+    identity_verified: bool = False
+    verification_score: Optional[int] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 

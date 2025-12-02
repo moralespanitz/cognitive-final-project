@@ -115,6 +115,8 @@ from .api.v1.incidents import router as incidents_router
 from .api.v1.chat import router as chat_router
 from .api.v1.devices import router as devices_router
 from .api.v1.faqs import router as faqs_router
+from .api.v1.faces import router as faces_router
+from .api.v1.images import router as images_router
 
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(users_router, prefix="/api/v1/users", tags=["Users"])
@@ -125,11 +127,18 @@ app.include_router(incidents_router, prefix="/api/v1", tags=["Incidents"])
 app.include_router(chat_router, prefix="/api/v1/chat", tags=["Chat"])
 app.include_router(devices_router, prefix="/api/v1/devices", tags=["Devices"])
 app.include_router(faqs_router, prefix="/api/v1/faqs", tags=["FAQs"])
+app.include_router(faces_router, prefix="/api/v1/faces", tags=["Face Recognition"])
+app.include_router(images_router, prefix="/api/v1/images", tags=["Trip Images"])
 
 
-# WebSocket endpoint for real-time tracking
+# WebSocket endpoints
 from fastapi import WebSocket, WebSocketDisconnect
 from .websocket.tracking import tracking_manager
+from .websocket.video import video_manager
+from .websocket.trips import trip_manager
+from .api.v1.video import latest_frames
+import asyncio
+
 
 @app.websocket("/ws/tracking")
 async def websocket_tracking_endpoint(websocket: WebSocket):
@@ -137,11 +146,68 @@ async def websocket_tracking_endpoint(websocket: WebSocket):
     await tracking_manager.connect(websocket)
     try:
         while True:
-            # Keep connection alive and handle messages
             data = await websocket.receive_text()
-            # Could handle client messages here (e.g., subscribe to specific vehicles)
     except WebSocketDisconnect:
         tracking_manager.disconnect(websocket)
+
+
+@app.websocket("/ws/video/{route_id}")
+async def websocket_video_endpoint(websocket: WebSocket, route_id: str):
+    """
+    WebSocket endpoint for real-time video streaming.
+    Frontend connects here to receive frames from ESP32-CAM devices.
+    """
+    await video_manager.connect(websocket, route_id)
+    try:
+        while True:
+            # Send latest frame every 100ms if available
+            if route_id in latest_frames:
+                await websocket.send_json({
+                    "type": "frame",
+                    "route_id": route_id,
+                    **latest_frames[route_id]
+                })
+            await asyncio.sleep(0.1)  # 10 FPS max
+    except WebSocketDisconnect:
+        video_manager.disconnect(websocket, route_id)
+
+
+@app.websocket("/ws/trips/driver/{driver_id}")
+async def websocket_driver_trips(websocket: WebSocket, driver_id: int):
+    """
+    WebSocket endpoint for drivers to receive real-time trip requests.
+    All connected drivers will see new trip requests instantly.
+    """
+    await trip_manager.connect_driver(websocket, driver_id)
+    try:
+        while True:
+            # Keep connection alive, waiting for messages
+            data = await websocket.receive_text()
+            # Handle any driver messages (e.g., acknowledgments)
+    except WebSocketDisconnect:
+        trip_manager.disconnect_driver(driver_id)
+
+
+@app.websocket("/ws/trips/customer/{customer_id}")
+async def websocket_customer_trips(websocket: WebSocket, customer_id: int):
+    """
+    WebSocket endpoint for customers to receive real-time trip updates.
+    Customer will be notified when driver accepts, arrives, starts, completes trip.
+    """
+    await trip_manager.connect_customer(websocket, customer_id)
+    try:
+        while True:
+            # Keep connection alive, waiting for messages
+            data = await websocket.receive_text()
+            # Handle any customer messages
+    except WebSocketDisconnect:
+        trip_manager.disconnect_customer(customer_id)
+
+
+@app.get("/api/v1/trips/ws-stats")
+async def get_trip_ws_stats():
+    """Get WebSocket connection statistics for trips."""
+    return trip_manager.get_stats()
 
 
 # SQLAdmin setup

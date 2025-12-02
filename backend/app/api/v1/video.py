@@ -2,11 +2,13 @@
 Video API endpoints.
 """
 
-from fastapi import APIRouter, Depends, File, UploadFile, HTTPException
+from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, Request, Header, Body
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import List
+from typing import List, Optional
 import base64
+import logging
 from datetime import datetime, timedelta
 
 from ...database import get_db
@@ -19,8 +21,75 @@ from ...dependencies import get_current_user
 from ...core.exceptions import NotFoundException
 from ...services.vision_service import VisionService
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
+
+# ============================================================================
+# ESP32-CAM DEVICE ENDPOINT - Simple image receiver (no AI)
+# ============================================================================
+
+# Store latest frame per device for WebSocket streaming
+latest_frames = {}  # {device_id: {"image": base64_string, "timestamp": datetime}}
+
+
+@router.post("/device/upload")
+async def device_upload_image(
+    request: Request,
+    x_route_id: Optional[str] = Header(None, alias="X-Route-ID"),
+):
+    """
+    Receive raw JPEG image from ESP32-CAM device.
+    Stores it for WebSocket streaming to frontend.
+
+    ESP32 sends: Content-Type: image/jpeg with raw bytes
+    """
+    try:
+        image_bytes = await request.body()
+
+        if not image_bytes or len(image_bytes) < 100:
+            return JSONResponse(status_code=400, content={"error": "No image"})
+
+        route_id = x_route_id or request.query_params.get("route_id", "taxi-01")
+
+        # Store as base64 for WebSocket streaming
+        image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+        latest_frames[route_id] = {
+            "image": image_base64,
+            "timestamp": datetime.utcnow().isoformat(),
+            "size": len(image_bytes)
+        }
+
+        logger.info(f"📸 Frame received: {route_id}, {len(image_bytes)} bytes")
+
+        return {"success": True, "route_id": route_id, "size": len(image_bytes)}
+
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@router.get("/device/latest/{route_id}")
+async def get_latest_frame(route_id: str):
+    """Get the latest frame for a device (for polling fallback)."""
+    if route_id in latest_frames:
+        return latest_frames[route_id]
+    return {"error": "No frame available", "route_id": route_id}
+
+
+@router.get("/device/list")
+async def list_active_devices():
+    """List all devices that have sent frames."""
+    return {
+        "devices": list(latest_frames.keys()),
+        "count": len(latest_frames)
+    }
+
+
+# ============================================================================
+# FRAME UPLOAD ENDPOINTS (Base64 JSON format)
+# ============================================================================
 
 @router.post("/frames/upload", response_model=VideoArchiveResponse, status_code=201)
 async def upload_frame(

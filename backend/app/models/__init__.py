@@ -9,6 +9,8 @@ from .video import VideoStream, VideoArchive
 from .incident import Incident, Alert, ChatHistory
 from .device import Device
 from .faq import FAQ
+from .face import FaceRegistration, VerificationLog
+from .image import TripImage
 
 __all__ = [
     "User",
@@ -23,4 +25,7 @@ __all__ = [
     "ChatHistory",
     "Device",
     "FAQ",
+    "FaceRegistration",
+    "VerificationLog",
+    "TripImage",
 ]

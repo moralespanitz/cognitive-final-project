@@ -13,7 +13,7 @@ from ...models.vehicle import Vehicle, Driver, Trip
 from ...schemas.vehicle import (
     VehicleCreate, VehicleUpdate, VehicleResponse,
     DriverCreate, DriverUpdate, DriverResponse,
-    TripCreate, TripUpdate, TripResponse
+    TripCreate, TripUpdate, TripResponse, TripRequest
 )
 from ...dependencies import get_current_user, get_current_manager_user
 from ...core.exceptions import NotFoundException, ConflictException
@@ -220,3 +220,312 @@ async def list_trips(
     trips = result.scalars().all()
 
     return trips
+
+
+# Booking Flow Endpoints
+@router.post("/trips/request", response_model=TripResponse, status_code=201)
+async def request_trip(
+    trip_request: TripRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Customer requests a taxi (finds nearest available driver)."""
+    from ...models.tracking import GPSLocation
+    from ...websocket.trips import trip_manager
+    from sqlalchemy import func
+    import math
+
+    # Calculate distance between two coordinates
+    def haversine(lat1, lon1, lat2, lon2):
+        R = 6371  # Earth radius in km
+        phi1, phi2 = math.radians(lat1), math.radians(lat2)
+        dphi = math.radians(lat2 - lat1)
+        dlambda = math.radians(lon2 - lon1)
+        a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
+        return 2 * R * math.asin(math.sqrt(a))
+
+    # Find available drivers with recent GPS data
+    stmt = select(Driver, Vehicle, GPSLocation).join(
+        Vehicle, Driver.id == Vehicle.current_driver_id
+    ).join(
+        GPSLocation, Vehicle.id == GPSLocation.vehicle_id
+    ).where(
+        Driver.status == "ON_DUTY"
+    ).order_by(GPSLocation.timestamp.desc())
+
+    result = await db.execute(stmt)
+    available = result.all()
+
+    if not available:
+        raise NotFoundException(detail="No available drivers")
+
+    # Find nearest driver
+    pickup_lat = trip_request.pickup_location["lat"]
+    pickup_lng = trip_request.pickup_location["lng"]
+
+    nearest = min(available, key=lambda x: haversine(
+        pickup_lat, pickup_lng, float(x[2].latitude), float(x[2].longitude)
+    ))
+
+    driver, vehicle, gps = nearest
+
+    # Calculate estimated fare (simple: $2 base + $1.50/km)
+    dest_lat = trip_request.destination["lat"]
+    dest_lng = trip_request.destination["lng"]
+    distance = haversine(pickup_lat, pickup_lng, dest_lat, dest_lng)
+    estimated_fare = 2.0 + (distance * 1.5)
+
+    # Handle verification if image provided
+    identity_verified = False
+    verification_score = None
+    if trip_request.verification_image:
+        from ...services.face_recognition_service import face_recognition_service
+        result = face_recognition_service.verify_face(current_user.id, trip_request.verification_image)
+        identity_verified = result.is_match
+        verification_score = result.similarity_score
+
+    # Create trip
+    trip = Trip(
+        customer_id=current_user.id,
+        vehicle_id=vehicle.id,
+        driver_id=driver.id,
+        pickup_location=trip_request.pickup_location,
+        destination=trip_request.destination,
+        status="REQUESTED",
+        estimated_fare=estimated_fare,
+        distance=distance,
+        identity_verified=identity_verified,
+        verification_score=verification_score
+    )
+
+    db.add(trip)
+    await db.commit()
+    await db.refresh(trip)
+
+    # Broadcast new trip to all connected drivers via WebSocket
+    trip_data = {
+        "id": trip.id,
+        "customer_id": trip.customer_id,
+        "vehicle_id": trip.vehicle_id,
+        "driver_id": trip.driver_id,
+        "pickup_location": trip.pickup_location,
+        "destination": trip.destination,
+        "status": trip.status,
+        "estimated_fare": float(trip.estimated_fare) if trip.estimated_fare else 0,
+        "distance": float(trip.distance) if trip.distance else 0,
+        "identity_verified": trip.identity_verified,
+        "verification_score": trip.verification_score,
+        "created_at": trip.created_at.isoformat() if trip.created_at else None
+    }
+    await trip_manager.broadcast_new_trip(trip_data)
+
+    return trip
+
+
+@router.post("/trips/{trip_id}/accept", response_model=TripResponse)
+async def accept_trip(
+    trip_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Driver accepts a trip."""
+    from ...websocket.trips import trip_manager
+
+    stmt = select(Trip).where(Trip.id == trip_id)
+    result = await db.execute(stmt)
+    trip = result.scalar_one_or_none()
+
+    if not trip:
+        raise NotFoundException(detail="Trip not found")
+
+    trip.status = "ACCEPTED"
+    await db.commit()
+    await db.refresh(trip)
+
+    # Notify customer and other drivers via WebSocket
+    trip_data = {
+        "id": trip.id,
+        "customer_id": trip.customer_id,
+        "vehicle_id": trip.vehicle_id,
+        "driver_id": trip.driver_id,
+        "pickup_location": trip.pickup_location,
+        "destination": trip.destination,
+        "status": trip.status,
+        "estimated_fare": float(trip.estimated_fare) if trip.estimated_fare else 0,
+        "distance": float(trip.distance) if trip.distance else 0,
+    }
+    await trip_manager.notify_trip_accepted(trip_data)
+
+    return trip
+
+
+@router.post("/trips/{trip_id}/arrive", response_model=TripResponse)
+async def arrive_at_pickup(
+    trip_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Driver arrived at pickup location."""
+    from ...websocket.trips import trip_manager
+
+    stmt = select(Trip).where(Trip.id == trip_id)
+    result = await db.execute(stmt)
+    trip = result.scalar_one_or_none()
+
+    if not trip:
+        raise NotFoundException(detail="Trip not found")
+
+    trip.status = "ARRIVED"
+    await db.commit()
+    await db.refresh(trip)
+
+    # Notify customer via WebSocket
+    trip_data = {
+        "id": trip.id,
+        "customer_id": trip.customer_id,
+        "vehicle_id": trip.vehicle_id,
+        "driver_id": trip.driver_id,
+        "status": trip.status,
+    }
+    await trip_manager.notify_trip_update(trip.id, trip_data, "driver_arrived")
+
+    return trip
+
+
+@router.post("/trips/{trip_id}/start", response_model=TripResponse)
+async def start_trip(
+    trip_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Start the trip (passenger onboard)."""
+    from datetime import datetime, timezone
+    from ...websocket.trips import trip_manager
+
+    stmt = select(Trip).where(Trip.id == trip_id)
+    result = await db.execute(stmt)
+    trip = result.scalar_one_or_none()
+
+    if not trip:
+        raise NotFoundException(detail="Trip not found")
+
+    trip.status = "IN_PROGRESS"
+    trip.start_time = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(trip)
+
+    # Notify customer via WebSocket - trip started, show live camera
+    trip_data = {
+        "id": trip.id,
+        "customer_id": trip.customer_id,
+        "vehicle_id": trip.vehicle_id,
+        "driver_id": trip.driver_id,
+        "status": trip.status,
+        "start_time": trip.start_time.isoformat() if trip.start_time else None,
+    }
+    await trip_manager.notify_trip_update(trip.id, trip_data, "trip_started")
+
+    return trip
+
+
+@router.post("/trips/{trip_id}/complete", response_model=TripResponse)
+async def complete_trip(
+    trip_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Complete the trip."""
+    from datetime import datetime, timezone
+    from ...websocket.trips import trip_manager
+
+    stmt = select(Trip).where(Trip.id == trip_id)
+    result = await db.execute(stmt)
+    trip = result.scalar_one_or_none()
+
+    if not trip:
+        raise NotFoundException(detail="Trip not found")
+
+    now = datetime.now(timezone.utc)
+    trip.status = "COMPLETED"
+    trip.end_time = now
+    trip.fare = trip.estimated_fare  # In production, calculate actual fare
+
+    if trip.start_time:
+        duration = (now - trip.start_time).total_seconds() / 60
+        trip.duration = int(duration)
+
+    await db.commit()
+    await db.refresh(trip)
+
+    # Notify customer via WebSocket - trip completed
+    trip_data = {
+        "id": trip.id,
+        "customer_id": trip.customer_id,
+        "vehicle_id": trip.vehicle_id,
+        "driver_id": trip.driver_id,
+        "status": trip.status,
+        "fare": float(trip.fare) if trip.fare else 0,
+        "duration": trip.duration,
+    }
+    await trip_manager.notify_trip_update(trip.id, trip_data, "trip_completed")
+
+    return trip
+
+
+@router.post("/trips/{trip_id}/cancel", response_model=TripResponse)
+async def cancel_trip(
+    trip_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Cancel a trip."""
+    stmt = select(Trip).where(Trip.id == trip_id)
+    result = await db.execute(stmt)
+    trip = result.scalar_one_or_none()
+
+    if not trip:
+        raise NotFoundException(detail="Trip not found")
+
+    trip.status = "CANCELLED"
+    await db.commit()
+    await db.refresh(trip)
+
+    return trip
+
+
+@router.get("/trips/{trip_id}", response_model=TripResponse)
+async def get_trip(
+    trip_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get trip details."""
+    stmt = select(Trip).where(Trip.id == trip_id)
+    result = await db.execute(stmt)
+    trip = result.scalar_one_or_none()
+
+    if not trip:
+        raise NotFoundException(detail="Trip not found")
+
+    return trip
+
+
+@router.get("/drivers/available", response_model=List[DriverResponse])
+async def get_available_drivers(
+    lat: float = Query(...),
+    lng: float = Query(...),
+    radius: float = Query(5.0),  # km
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get available drivers near a location."""
+    from ...models.tracking import GPSLocation
+
+    stmt = select(Driver).join(
+        Vehicle, Driver.id == Vehicle.current_driver_id
+    ).where(Driver.status == "ON_DUTY")
+
+    result = await db.execute(stmt)
+    drivers = result.scalars().all()
+
+    return drivers

@@ -14,6 +14,7 @@ class GPSLocationCreate(BaseModel):
     speed: Optional[float] = Field(None, ge=0, description="Speed in km/h")
     heading: Optional[float] = Field(None, ge=0, lt=360, description="Heading in degrees")
     accuracy: Optional[float] = Field(None, ge=0, description="GPS accuracy in meters")
+    altitude: Optional[float] = Field(None, description="Altitude in meters")
     device_id: Optional[str] = Field(None, max_length=100, description="Device identifier")
 
 

@@ -27,6 +27,7 @@ dependencies = [
     "redis[hiredis]>=5.0.1",
     "python-dotenv>=1.0.0",
     "httpx>=0.25.2",
+    "greenlet>=3.2.4",
 ]
 
 [project.optional-dependencies]
@@ -42,6 +43,10 @@ dev = [
 [build-system]
 requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
 
 [tool.black]
 line-length = 100
