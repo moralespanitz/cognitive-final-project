@@ -56,7 +56,6 @@ class Driver(Base):
     user = relationship("User", back_populates="driver_profile")
     assigned_vehicle = relationship("Vehicle", back_populates="current_driver")
     trips = relationship("Trip", back_populates="driver")
-    incidents = relationship("Incident", back_populates="driver")
 
     def __repr__(self) -> str:
         return f"<Driver(id={self.id}, license='{self.license_number}', status='{self.status}')>"
@@ -89,8 +88,6 @@ class Vehicle(Base):
     gps_locations = relationship("GPSLocation", back_populates="vehicle")
     video_streams = relationship("VideoStream", back_populates="vehicle")
     video_archives = relationship("VideoArchive", back_populates="vehicle")
-    incidents = relationship("Incident", back_populates="vehicle")
-    alerts = relationship("Alert", back_populates="vehicle")
     devices = relationship("Device", back_populates="vehicle")
 
     def __repr__(self) -> str:

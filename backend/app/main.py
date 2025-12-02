@@ -206,6 +206,21 @@ async def get_trip_ws_stats():
     return trip_manager.get_stats()
 
 
+# SQLAdmin setup
+if settings.DEBUG:
+    from sqladmin import Admin
+    from .admin.views import setup_admin
+    from sqlalchemy import create_engine
+
+    # Create sync engine for SQLAdmin
+    sync_database_url = settings.DATABASE_URL.replace("+asyncpg", "")
+    sync_engine = create_engine(sync_database_url, echo=False)
+
+    admin = Admin(app, sync_engine, title="TaxiWatch Admin")
+    setup_admin(admin)
+    logger.info("SQLAdmin initialized at /admin")
+
+
 # AWS Lambda handler using Mangum
 from mangum import Mangum
 handler = Mangum(app, lifespan="off")

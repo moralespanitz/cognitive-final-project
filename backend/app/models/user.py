@@ -37,9 +37,6 @@ class User(Base):
 
     # Relationships
     driver_profile = relationship("Driver", back_populates="user", uselist=False)
-    resolved_incidents = relationship("Incident", foreign_keys="Incident.resolved_by_id", back_populates="resolved_by")
-    acknowledged_alerts = relationship("Alert", foreign_keys="Alert.acknowledged_by_id", back_populates="acknowledged_by")
-    chat_history = relationship("ChatHistory", back_populates="user")
 
     def __repr__(self) -> str:
         return f"<User(id={self.id}, username='{self.username}', role='{self.role}')>"

@@ -65,7 +65,6 @@ class VideoArchive(Base):
 
     # Relationships
     vehicle = relationship("Vehicle", back_populates="video_archives")
-    incidents = relationship("Incident", secondary="incident_video_archives", back_populates="video_clips")
 
     def __repr__(self) -> str:
         return f"<VideoArchive(id={self.id}, vehicle_id={self.vehicle_id}, file='{self.file_path}')>"
