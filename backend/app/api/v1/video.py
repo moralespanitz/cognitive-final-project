@@ -36,12 +36,16 @@ latest_frames = {}  # {device_id: {"image": base64_string, "timestamp": datetime
 async def device_upload_image(
     request: Request,
     x_route_id: Optional[str] = Header(None, alias="X-Route-ID"),
+    x_trip_id: Optional[str] = Header(None, alias="X-Trip-ID"),
 ):
     """
     Receive raw JPEG image from ESP32-CAM device.
     Stores it for WebSocket streaming to frontend.
 
     ESP32 sends: Content-Type: image/jpeg with raw bytes
+    Headers:
+    - X-Route-ID: Vehicle identifier (e.g., "taxi-01")
+    - X-Trip-ID: Optional trip ID for associating video with specific trip
     """
     try:
         image_bytes = await request.body()
@@ -50,18 +54,25 @@ async def device_upload_image(
             return JSONResponse(status_code=400, content={"error": "No image"})
 
         route_id = x_route_id or request.query_params.get("route_id", "taxi-01")
+        trip_id = x_trip_id or request.query_params.get("trip_id")
 
         # Store as base64 for WebSocket streaming
         image_base64 = base64.b64encode(image_bytes).decode('utf-8')
         latest_frames[route_id] = {
             "image": image_base64,
             "timestamp": datetime.utcnow().isoformat(),
-            "size": len(image_bytes)
+            "size": len(image_bytes),
+            "trip_id": trip_id  # Associate with trip if provided
         }
 
-        logger.info(f"📸 Frame received: {route_id}, {len(image_bytes)} bytes")
+        logger.info(f"📸 Frame received: {route_id}, {len(image_bytes)} bytes, Trip: {trip_id or 'N/A'}")
 
-        return {"success": True, "route_id": route_id, "size": len(image_bytes)}
+        return {
+            "success": True,
+            "route_id": route_id,
+            "trip_id": trip_id,
+            "size": len(image_bytes)
+        }
 
     except Exception as e:
         logger.error(f"Error: {e}")
