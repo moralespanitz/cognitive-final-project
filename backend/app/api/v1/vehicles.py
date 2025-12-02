@@ -293,14 +293,9 @@ async def request_trip(
     distance = haversine(pickup_lat, pickup_lng, dest_lat, dest_lng)
     estimated_fare = 2.0 + (distance * 1.5)
 
-    # Handle verification if image provided
+    # Identity verification disabled
     identity_verified = False
     verification_score = None
-    if trip_request.verification_image:
-        from ...services.face_recognition_service import face_recognition_service
-        result = face_recognition_service.verify_face(current_user.id, trip_request.verification_image)
-        identity_verified = result.is_match
-        verification_score = result.similarity_score
 
     # Create trip
     trip = Trip(

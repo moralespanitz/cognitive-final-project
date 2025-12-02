@@ -111,11 +111,9 @@ from .api.v1.users import router as users_router
 from .api.v1.vehicles import router as vehicles_router
 from .api.v1.tracking import router as tracking_router
 from .api.v1.video import router as video_router
-from .api.v1.incidents import router as incidents_router
 from .api.v1.chat import router as chat_router
 from .api.v1.devices import router as devices_router
 from .api.v1.faqs import router as faqs_router
-from .api.v1.faces import router as faces_router
 from .api.v1.images import router as images_router
 
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
@@ -123,11 +121,9 @@ app.include_router(users_router, prefix="/api/v1/users", tags=["Users"])
 app.include_router(vehicles_router, prefix="/api/v1", tags=["Vehicles"])
 app.include_router(tracking_router, prefix="/api/v1/tracking", tags=["Tracking"])
 app.include_router(video_router, prefix="/api/v1/video", tags=["Video"])
-app.include_router(incidents_router, prefix="/api/v1", tags=["Incidents"])
 app.include_router(chat_router, prefix="/api/v1/chat", tags=["Chat"])
 app.include_router(devices_router, prefix="/api/v1/devices", tags=["Devices"])
 app.include_router(faqs_router, prefix="/api/v1/faqs", tags=["FAQs"])
-app.include_router(faces_router, prefix="/api/v1/faces", tags=["Face Recognition"])
 app.include_router(images_router, prefix="/api/v1/images", tags=["Trip Images"])
 
 
@@ -208,17 +204,6 @@ async def websocket_customer_trips(websocket: WebSocket, customer_id: int):
 async def get_trip_ws_stats():
     """Get WebSocket connection statistics for trips."""
     return trip_manager.get_stats()
-
-
-# SQLAdmin setup
-# Commented out until admin/views.py is created
-# if settings.DEBUG:
-#     from sqladmin import Admin
-#     from .admin.views import setup_admin_views
-#
-#     admin = Admin(app, engine.sync_engine if hasattr(engine, 'sync_engine') else None)
-#     setup_admin_views(admin)
-#     logger.info("SQLAdmin initialized at /admin")
 
 
 # AWS Lambda handler using Mangum
