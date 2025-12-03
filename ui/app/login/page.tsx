@@ -31,7 +31,8 @@ export default function LoginPage() {
       localStorage.setItem('refresh_token', data.refresh_token);
 
       // Fetch real user data from backend
-      const userResponse = await fetch('http://localhost:8000/api/v1/users/me', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+      const userResponse = await fetch(`${apiUrl}/users/me`, {
         headers: {
           'Authorization': `Bearer ${data.access_token}`
         }
