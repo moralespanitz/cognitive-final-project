@@ -14,7 +14,9 @@ class UserRole(str, enum.Enum):
     ADMIN = "ADMIN"
     FLEET_MANAGER = "FLEET_MANAGER"
     DISPATCHER = "DISPATCHER"
-    OPERATOR = "OPERATOR"
+    DRIVER = "DRIVER"
+    CUSTOMER = "CUSTOMER"
+    OPERATOR = "OPERATOR"  # Legacy, kept for backwards compatibility
 
 
 class User(Base):

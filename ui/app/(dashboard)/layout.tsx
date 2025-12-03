@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,6 @@ import {
   LogOutIcon,
   MenuIcon,
   XIcon,
-  ShieldIcon,
   UsersIcon,
   HelpCircleIcon,
   ServerIcon,
@@ -24,7 +23,13 @@ import {
   ImageIcon,
   HistoryIcon,
   VideoIcon,
+  MonitorIcon,
 } from 'lucide-react';
+
+// Route permissions by role
+const adminRoutes = ['/admin', '/vehicles', '/map', '/chat', '/video-monitor'];
+const driverRoutes = ['/driver'];
+const customerRoutes = ['/book', '/history'];
 
 export default function DashboardLayout({
   children,
@@ -32,14 +37,20 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, setUser, logout } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Determine user role type
+  const isAdmin = user && (user.role === 'ADMIN' || user.is_superuser);
+  const isDriver = user && user.role === 'DRIVER';
+  const isCustomer = user && user.role === 'CUSTOMER';
 
   useEffect(() => {
     // Check authentication
     const token = localStorage.getItem('access_token');
     const savedUser = localStorage.getItem('user');
-    
+
     if (!token) {
       router.push('/login');
       return;
@@ -50,16 +61,40 @@ export default function DashboardLayout({
     }
   }, [router, user, setUser]);
 
+  // Route protection - redirect if user doesn't have access
+  useEffect(() => {
+    if (!user) return;
+
+    const currentPath = pathname;
+
+    // Check if user is trying to access a restricted route
+    if (adminRoutes.some(route => currentPath.startsWith(route))) {
+      if (!isAdmin) {
+        router.push(isDriver ? '/driver' : '/book');
+        return;
+      }
+    }
+
+    if (driverRoutes.some(route => currentPath.startsWith(route))) {
+      if (!isDriver && !isAdmin) {
+        router.push(isCustomer ? '/book' : '/');
+        return;
+      }
+    }
+
+    if (customerRoutes.some(route => currentPath.startsWith(route))) {
+      if (!isCustomer && !isAdmin) {
+        router.push(isDriver ? '/driver' : '/');
+        return;
+      }
+    }
+  }, [user, pathname, router, isAdmin, isDriver, isCustomer]);
+
   const handleLogout = () => {
     authApi.logout();
     logout();
     router.push('/login');
   };
-
-  // Determine user role type
-  const isAdmin = user && (user.role === 'ADMIN' || user.is_superuser);
-  const isDriver = user && (user.role === 'OPERATOR' || user.username?.startsWith('driver'));
-  const isCustomer = user && !isAdmin && !isDriver;
 
   // Build navigation based on role
   let allNavigation: { name: string; href: string; icon: any }[] = [];
@@ -70,6 +105,7 @@ export default function DashboardLayout({
       { name: 'Dashboard', href: '/', icon: LayoutDashboardIcon },
       { name: 'Live Map', href: '/map', icon: MapIcon },
       { name: 'Vehicles', href: '/vehicles', icon: CarIcon },
+      { name: 'Video Monitor', href: '/video-monitor', icon: MonitorIcon },
       { name: 'AI Chat', href: '/chat', icon: MessageSquareIcon },
       { name: 'Manage Users', href: '/admin/users', icon: UsersIcon },
       { name: 'Devices', href: '/admin/devices', icon: ServerIcon },
@@ -84,12 +120,17 @@ export default function DashboardLayout({
       { name: 'Camera', href: '/driver/camera', icon: VideoIcon },
       { name: 'My Trips', href: '/trips', icon: HistoryIcon },
     ];
-  } else {
+  } else if (isCustomer) {
     // CUSTOMER/PASSENGER VIEW - Book and track trips
     allNavigation = [
       { name: 'Book Taxi', href: '/book', icon: Car },
       { name: 'My Trips', href: '/trips', icon: HistoryIcon },
-      { name: 'Image History', href: '/history', icon: ImageIcon },
+    ];
+  } else {
+    // Fallback for other roles (OPERATOR, etc.)
+    allNavigation = [
+      { name: 'Dashboard', href: '/', icon: LayoutDashboardIcon },
+      { name: 'My Trips', href: '/trips', icon: HistoryIcon },
     ];
   }
 
