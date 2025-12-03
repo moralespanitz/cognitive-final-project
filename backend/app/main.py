@@ -115,6 +115,7 @@ from .api.v1.chat import router as chat_router
 from .api.v1.devices import router as devices_router
 from .api.v1.faqs import router as faqs_router
 from .api.v1.images import router as images_router
+from .api.v1.faces import router as faces_router
 
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(users_router, prefix="/api/v1/users", tags=["Users"])
@@ -125,6 +126,7 @@ app.include_router(chat_router, prefix="/api/v1/chat", tags=["Chat"])
 app.include_router(devices_router, prefix="/api/v1/devices", tags=["Devices"])
 app.include_router(faqs_router, prefix="/api/v1/faqs", tags=["FAQs"])
 app.include_router(images_router, prefix="/api/v1/images", tags=["Trip Images"])
+app.include_router(faces_router, prefix="/api/v1/faces", tags=["Face Recognition"])
 
 
 # WebSocket endpoints
