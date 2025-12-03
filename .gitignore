@@ -13,6 +13,7 @@ downloads/
 eggs/
 .eggs/
 lib/
+!ui/lib/
 lib64/
 parts/
 sdist/
@@ -145,6 +146,8 @@ yarn-error.log*
 .next/
 out/
 .cache/
+.pnpm-store/
+.pnp/
 
 # OS
 .DS_Store
