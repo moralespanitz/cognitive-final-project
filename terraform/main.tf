@@ -1,134 +1,110 @@
-# TaxiWatch - Complete AWS Infrastructure
+# TaxiWatch - AWS Infrastructure with EC2
+# Simplified deployment: EC2 + RDS + S3 (No Lambda, No Redis)
+
+terraform {
+  required_version = ">= 1.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~> 4.0"
+    }
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = var.aws_region
+
+  default_tags {
+    tags = {
+      Project     = var.project_name
+      Environment = var.environment
+      ManagedBy   = "Terraform"
+    }
+  }
+}
 
 # VPC Module
 module "vpc" {
   source = "./modules/vpc"
 
-  project_name        = var.project_name
-  environment         = var.environment
-  vpc_cidr            = var.vpc_cidr
-  availability_zones  = var.availability_zones
-  public_subnet_cidrs = var.public_subnet_cidrs
-  private_subnet_cidrs = var.private_subnet_cidrs
+  project_name          = var.project_name
+  environment           = var.environment
+  vpc_cidr              = var.vpc_cidr
+  availability_zones    = var.availability_zones
+  public_subnet_cidrs   = var.public_subnet_cidrs
+  private_subnet_cidrs  = var.private_subnet_cidrs
   database_subnet_cidrs = var.database_subnet_cidrs
 }
 
-# Secrets Manager Module
-module "secrets" {
-  source = "./modules/secrets"
+# S3 Module (for video frames and archives)
+module "s3" {
+  source = "./modules/s3"
 
-  project_name   = var.project_name
-  environment    = var.environment
-  secret_key     = var.secret_key
-  openai_api_key = var.openai_api_key
-  db_password    = var.db_password
+  project_name = var.project_name
+  environment  = var.environment
+
+  # No Lambda integration needed for EC2
+  frame_processor_lambda_arn = null
+  lambda_s3_permission       = null
 }
 
-# RDS Module
+# RDS Module (PostgreSQL database)
 module "rds" {
   source = "./modules/rds"
-
-  project_name          = var.project_name
-  environment           = var.environment
-  vpc_id                = module.vpc.vpc_id
-  database_subnet_ids   = module.vpc.database_subnet_ids
-  allowed_security_groups = []  # Will be updated after Lambda module
-  db_name               = var.db_name
-  db_username           = var.db_username
-  db_password           = var.db_password
-  instance_class        = var.db_instance_class
-  allocated_storage     = var.db_allocated_storage
-  multi_az              = var.db_multi_az
-}
-
-# ElastiCache Module
-module "elasticache" {
-  source = "./modules/elasticache"
 
   project_name            = var.project_name
   environment             = var.environment
   vpc_id                  = module.vpc.vpc_id
-  private_subnet_ids      = module.vpc.private_subnet_ids
-  allowed_security_groups = []  # Will be updated after Lambda module
-  node_type               = var.redis_node_type
+  database_subnet_ids     = module.vpc.database_subnet_ids
+  allowed_security_groups = []  # Will be added by EC2 module
+  db_name                 = var.db_name
+  db_username             = var.db_username
+  db_password             = var.db_password
+  instance_class          = var.db_instance_class
+  allocated_storage       = var.db_allocated_storage
+  multi_az                = var.db_multi_az
 }
 
-# SQS Module
-module "sqs" {
-  source = "./modules/sqs"
+# EC2 Module (Application server)
+module "ec2" {
+  source = "./modules/ec2"
 
-  project_name = var.project_name
-  environment  = var.environment
-}
+  project_name      = var.project_name
+  environment       = var.environment
+  vpc_id            = module.vpc.vpc_id
+  public_subnet_ids = module.vpc.public_subnet_ids
 
-# S3 Module (must be created before Lambda due to notifications)
-module "s3" {
-  source = "./modules/s3"
+  # Instance configuration
+  instance_type = var.ec2_instance_type
+  ami_id        = var.ec2_ami_id
+  key_name      = var.ec2_key_name
 
-  project_name               = var.project_name
-  environment                = var.environment
-  frame_processor_lambda_arn = module.lambda.frame_processor_lambda_arn
-  lambda_s3_permission       = null  # Circular dependency resolved below
-}
+  # Database connection
+  rds_endpoint          = module.rds.db_endpoint
+  rds_security_group_id = module.rds.db_security_group_id
+  db_name               = var.db_name
+  db_username           = var.db_username
+  db_password           = var.db_password
 
-# Lambda Module
-module "lambda" {
-  source = "./modules/lambda"
+  # S3 buckets
+  s3_frames_bucket = module.s3.frames_bucket_name
+  s3_videos_bucket = module.s3.videos_bucket_name
 
-  project_name        = var.project_name
-  environment         = var.environment
-  vpc_id              = module.vpc.vpc_id
-  private_subnet_ids  = module.vpc.private_subnet_ids
-  db_endpoint         = module.rds.db_endpoint
-  db_name             = var.db_name
-  db_username         = var.db_username
-  db_password         = var.db_password
-  redis_endpoint      = module.elasticache.redis_endpoint
-  secret_key          = var.secret_key
-  openai_api_key      = var.openai_api_key
-  frames_bucket_name  = module.s3.frames_bucket_name
-  frames_bucket_arn   = module.s3.frames_bucket_arn
-  videos_bucket_name  = module.s3.videos_bucket_name
-  videos_bucket_arn   = module.s3.videos_bucket_arn
-  ai_queue_url        = module.sqs.ai_queue_url
-  ai_queue_arn        = module.sqs.ai_queue_arn
-  secrets_arn         = module.secrets.secrets_arn
-  cors_origins        = var.cors_origins
-  api_lambda_zip      = var.api_lambda_zip
-  lambda_layer_zip    = var.lambda_layer_zip
-}
+  # Application secrets
+  secret_key = var.secret_key
 
-# API Gateway Module
-module "api_gateway" {
-  source = "./modules/api_gateway"
+  # Repository configuration
+  github_repo   = var.github_repo
+  github_branch = var.github_branch
 
-  project_name         = var.project_name
-  environment          = var.environment
-  lambda_invoke_arn    = module.lambda.api_lambda_invoke_arn
-  lambda_function_name = module.lambda.api_lambda_name
-  cors_origins         = var.cors_origins_list
-  custom_domain_name   = var.custom_domain_name
-  certificate_arn      = var.certificate_arn
-}
-
-# Update RDS security group to allow Lambda access
-resource "aws_security_group_rule" "rds_from_lambda" {
-  type                     = "ingress"
-  from_port                = 5432
-  to_port                  = 5432
-  protocol                 = "tcp"
-  security_group_id        = module.rds.db_security_group_id
-  source_security_group_id = module.lambda.lambda_security_group_id
-  description              = "PostgreSQL access from Lambda"
-}
-
-# Update ElastiCache security group to allow Lambda access
-resource "aws_security_group_rule" "redis_from_lambda" {
-  type                     = "ingress"
-  from_port                = 6379
-  to_port                  = 6379
-  protocol                 = "tcp"
-  security_group_id        = module.elasticache.redis_security_group_id
-  source_security_group_id = module.lambda.lambda_security_group_id
-  description              = "Redis access from Lambda"
+  depends_on = [module.vpc, module.rds, module.s3]
 }

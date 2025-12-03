@@ -1,4 +1,4 @@
-# Terraform Variables for TaxiWatch Infrastructure
+# Terraform Variables for TaxiWatch EC2 Deployment
 
 # General
 variable "project_name" {
@@ -10,13 +10,13 @@ variable "project_name" {
 variable "environment" {
   description = "Environment name (dev, staging, prod)"
   type        = string
-  default     = "dev"
+  default     = "prod"
 }
 
 variable "aws_region" {
   description = "AWS region for resources"
   type        = string
-  default     = "us-east-1"
+  default     = "us-west-2"  # Oregon - from screenshot
 }
 
 # VPC Configuration
@@ -29,7 +29,7 @@ variable "vpc_cidr" {
 variable "availability_zones" {
   description = "Availability zones for subnets"
   type        = list(string)
-  default     = ["us-east-1a", "us-east-1b"]
+  default     = ["us-west-2a", "us-west-2b"]
 }
 
 variable "public_subnet_cidrs" {
@@ -48,6 +48,25 @@ variable "database_subnet_cidrs" {
   description = "CIDR blocks for database subnets"
   type        = list(string)
   default     = ["10.0.20.0/24", "10.0.21.0/24"]
+}
+
+# EC2 Configuration
+variable "ec2_instance_type" {
+  description = "EC2 instance type"
+  type        = string
+  default     = "t3.small"  # ~$15/month
+}
+
+variable "ec2_ami_id" {
+  description = "Ubuntu 22 AMI ID (Cloud9Ubuntu22)"
+  type        = string
+  default     = "ami-047f8ab1a8e4de3659"  # us-west-2
+}
+
+variable "ec2_key_name" {
+  description = "EC2 key pair name (leave empty to auto-generate)"
+  type        = string
+  default     = ""  # Will create new key pair
 }
 
 # RDS Configuration
@@ -72,26 +91,19 @@ variable "db_password" {
 variable "db_instance_class" {
   description = "RDS instance class"
   type        = string
-  default     = "db.t3.micro"
+  default     = "db.t3.micro"  # Free tier eligible
 }
 
 variable "db_allocated_storage" {
   description = "RDS allocated storage in GB"
   type        = number
-  default     = 20
+  default     = 20  # Free tier: 20GB
 }
 
 variable "db_multi_az" {
   description = "Enable Multi-AZ deployment for RDS"
   type        = bool
-  default     = false
-}
-
-# ElastiCache Configuration
-variable "redis_node_type" {
-  description = "ElastiCache Redis node type"
-  type        = string
-  default     = "cache.t3.micro"
+  default     = false  # Save costs for MVP
 }
 
 # Application Secrets
@@ -101,47 +113,15 @@ variable "secret_key" {
   sensitive   = true
 }
 
-variable "openai_api_key" {
-  description = "OpenAI API key for GPT-4 and Vision"
+# GitHub Repository
+variable "github_repo" {
+  description = "GitHub repository URL"
   type        = string
-  sensitive   = true
+  default     = "https://github.com/moralespanitz/cognitive-final-project.git"
 }
 
-# CORS Configuration
-variable "cors_origins" {
-  description = "CORS allowed origins (comma-separated string for Lambda env)"
+variable "github_branch" {
+  description = "GitHub branch to deploy"
   type        = string
-  default     = "http://localhost:3000,https://taxiwatch.example.com"
-}
-
-variable "cors_origins_list" {
-  description = "CORS allowed origins (list for API Gateway)"
-  type        = list(string)
-  default     = ["http://localhost:3000", "https://taxiwatch.example.com"]
-}
-
-# Lambda Configuration
-variable "api_lambda_zip" {
-  description = "Path to Lambda deployment package"
-  type        = string
-  default     = "../backend/lambda_package.zip"
-}
-
-variable "lambda_layer_zip" {
-  description = "Path to Lambda layer package"
-  type        = string
-  default     = "../backend/lambda_layer.zip"
-}
-
-# Custom Domain (Optional)
-variable "custom_domain_name" {
-  description = "Custom domain name for API Gateway (optional)"
-  type        = string
-  default     = ""
-}
-
-variable "certificate_arn" {
-  description = "ACM certificate ARN for custom domain (optional)"
-  type        = string
-  default     = ""
+  default     = "master"
 }

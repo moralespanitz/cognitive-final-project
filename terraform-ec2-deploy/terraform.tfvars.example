@@ -1,0 +1,127 @@
+# TaxiWatch Terraform Configuration Example
+# Copy this file to terraform.tfvars and update with your values
+# $ cp terraform.tfvars.example terraform.tfvars
+
+# ==============================================================================
+# GENERAL CONFIGURATION
+# ==============================================================================
+
+project_name = "taxiwatch"
+environment  = "dev"  # dev, staging, prod
+aws_region   = "us-east-1"
+
+# ==============================================================================
+# VPC CONFIGURATION
+# ==============================================================================
+
+vpc_cidr             = "10.0.0.0/16"
+availability_zones   = ["us-east-1a", "us-east-1b"]
+public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24"]
+private_subnet_cidrs = ["10.0.10.0/24", "10.0.11.0/24"]
+database_subnet_cidrs = ["10.0.20.0/24", "10.0.21.0/24"]
+
+# ==============================================================================
+# RDS (PostgreSQL) CONFIGURATION
+# ==============================================================================
+
+db_name           = "taxiwatch"
+db_username       = "taxiwatch_admin"
+
+# ⚠️ IMPORTANT: Change this to a strong password!
+# Generate with: python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+db_password       = "CHANGE_ME_TO_A_STRONG_PASSWORD"
+
+# Instance size:
+# - db.t3.micro: $15/month (development/testing)
+# - db.t3.small: $30/month (small production)
+# - db.t3.medium: $60/month (medium production)
+db_instance_class = "db.t3.micro"
+
+db_allocated_storage = 20  # GB
+
+# Multi-AZ: false for dev ($15/month), true for prod ($30/month for failover)
+db_multi_az       = false
+
+# ==============================================================================
+# ELASTICACHE (Redis) CONFIGURATION
+# ==============================================================================
+
+# Node type:
+# - cache.t3.micro: $12/month (development)
+# - cache.t3.small: $24/month (small production)
+# - cache.t3.medium: $48/month (medium production)
+redis_node_type = "cache.t3.micro"
+
+# ==============================================================================
+# APPLICATION SECRETS
+# ==============================================================================
+
+# ⚠️ IMPORTANT: Generate a strong random secret key!
+# Generate with: python3 -c "import secrets; print(secrets.token_urlsafe(64))"
+secret_key     = "CHANGE_ME_TO_A_RANDOM_SECRET_KEY_AT_LEAST_32_CHARACTERS_LONG"
+
+# ⚠️ REQUIRED: Add your OpenAI API key
+# Get one at: https://platform.openai.com/api-keys
+openai_api_key = "sk-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+
+# ==============================================================================
+# CORS CONFIGURATION
+# ==============================================================================
+
+# Comma-separated string for Lambda environment variable
+cors_origins      = "http://localhost:3000,https://yourdomain.com"
+
+# List for API Gateway
+cors_origins_list = [
+  "http://localhost:3000",
+  "https://yourdomain.com"
+]
+
+# ==============================================================================
+# LAMBDA CONFIGURATION
+# ==============================================================================
+
+# Paths to Lambda deployment packages (relative to terraform directory)
+api_lambda_zip   = "../backend/lambda_package.zip"
+lambda_layer_zip = "../backend/lambda_layer.zip"
+
+# Note: Build these packages first with: cd backend && ./build_lambda.sh
+
+# ==============================================================================
+# CUSTOM DOMAIN (OPTIONAL)
+# ==============================================================================
+
+# Leave empty ("") if you don't want a custom domain
+custom_domain_name = ""
+
+# If using custom domain, provide ACM certificate ARN
+# Example: "arn:aws:acm:us-east-1:123456789012:certificate/abc-123"
+certificate_arn    = ""
+
+# ==============================================================================
+# NOTES
+# ==============================================================================
+#
+# 1. SECURITY:
+#    - Never commit terraform.tfvars to git (it's in .gitignore)
+#    - Use strong passwords (min 32 characters)
+#    - Rotate secrets regularly
+#    - Consider using AWS Secrets Manager rotation
+#
+# 2. COST OPTIMIZATION:
+#    - Dev environment: ~$40/month (t3.micro instances, single AZ)
+#    - Prod environment: ~$150/month (t3.small instances, Multi-AZ)
+#    - Monitor costs with AWS Cost Explorer
+#
+# 3. DEPLOYMENT:
+#    - First time: terraform init
+#    - Preview: terraform plan
+#    - Deploy: terraform apply
+#    - Destroy: terraform destroy (be careful!)
+#
+# 4. AFTER DEPLOYMENT:
+#    - Get API endpoint: terraform output api_endpoint
+#    - Run migrations: See DEPLOYMENT_AWS.md
+#    - Create admin user: See DEPLOYMENT_AWS.md
+#
+# ==============================================================================
