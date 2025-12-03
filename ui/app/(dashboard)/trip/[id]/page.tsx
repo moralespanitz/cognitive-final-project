@@ -77,7 +77,8 @@ export default function TripTrackingPage() {
 
     const connect = () => {
       try {
-        ws = new WebSocket(`ws://localhost:8000/ws/trips/customer/${user.id}`);
+        const wsHost = process.env.NEXT_PUBLIC_API_URL?.replace('http://', '').replace('/api/v1', '') || 'localhost:8000';
+        ws = new WebSocket(`ws://${wsHost}/ws/trips/customer/${user.id}`);
 
         ws.onopen = () => {
           console.log("👤 Customer WebSocket connected");
@@ -146,7 +147,8 @@ export default function TripTrackingPage() {
 
     // Connect to video stream for this vehicle
     const routeId = `taxi-${trip.vehicle_id.toString().padStart(2, '0')}`;
-    const ws = new WebSocket(`ws://localhost:8000/ws/video/${routeId}`);
+    const wsHost = process.env.NEXT_PUBLIC_API_URL?.replace('http://', '').replace('/api/v1', '') || 'localhost:8000';
+    const ws = new WebSocket(`ws://${wsHost}/ws/video/${routeId}`);
 
     ws.onopen = () => {
       console.log("📹 Camera WebSocket connected for", routeId);

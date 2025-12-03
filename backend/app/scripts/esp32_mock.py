@@ -1,6 +1,16 @@
 """
 ESP32-CAM Mock - Simula el envío de imágenes desde el hardware ESP32-CAM
 Basado en el código real del ESP32
+
+Usage:
+    # Local development
+    python esp32_mock.py
+
+    # Production (AWS EC2)
+    python esp32_mock.py --server http://98.92.214.232:8000 --route taxi-01
+
+    # With trip association
+    python esp32_mock.py --server http://98.92.214.232:8000 --route taxi-01 --trip 5
 """
 import time
 import requests
@@ -8,12 +18,13 @@ from io import BytesIO
 from PIL import Image, ImageDraw, ImageFont
 import random
 from datetime import datetime
+import argparse
+import sys
 
-# ===== Configuración del endpoint =====
-SERVER_URL = "http://localhost:8000/api/v1/video/device/upload"
-ROUTE_ID = "taxi-01"  # Identificación del taxista
-
-# ===== Intervalos =====
+# ===== Default Configuration =====
+DEFAULT_SERVER_URL = "http://98.92.214.232:8000/api/v1/video/device/upload"
+DEFAULT_ROUTE_ID = "taxi-01"
+DEFAULT_TRIP_ID = None
 SHOT_INTERVAL = 3  # 3 segundos entre capturas
 
 
@@ -51,7 +62,7 @@ def generate_mock_image(route_id: str) -> bytes:
     return buffer.getvalue()
 
 
-def send_image(route_id: str):
+def send_image(server_url: str, route_id: str, trip_id: str = None):
     """Envía una imagen al servidor, simulando el ESP32."""
     try:
         # Generar imagen
@@ -63,9 +74,13 @@ def send_image(route_id: str):
             "X-Route-ID": route_id
         }
 
+        # Add trip ID if provided
+        if trip_id:
+            headers["X-Trip-ID"] = trip_id
+
         # Enviar POST
         response = requests.post(
-            SERVER_URL,
+            server_url,
             data=image_bytes,
             headers=headers,
             timeout=10
@@ -73,32 +88,98 @@ def send_image(route_id: str):
 
         if response.status_code == 200:
             result = response.json()
-            print(f"✅ Imagen enviada. Código: {response.status_code}, Size: {result.get('size')} bytes")
+            trip_info = f", Trip: {trip_id}" if trip_id else ""
+            print(f"✅ Frame sent - {route_id}{trip_info} | Size: {result.get('size')} bytes | {datetime.now().strftime('%H:%M:%S')}")
         else:
-            print(f"❌ Error al enviar: {response.status_code}")
+            print(f"❌ Error: {response.status_code}")
             print(response.text)
 
+    except requests.exceptions.ConnectionError:
+        print(f"❌ Connection error - Server not reachable at {server_url}")
     except Exception as e:
         print(f"❌ Error: {e}")
 
 
+def verify_connection(server_url: str):
+    """Verify that the server is reachable and the endpoint exists."""
+    try:
+        # Check device list endpoint
+        base_url = server_url.replace("/device/upload", "")
+        response = requests.get(f"{base_url}/device/list", timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            print(f"✅ Server connected! Active devices: {data.get('count', 0)}")
+            if data.get('devices'):
+                print(f"   Current devices: {', '.join(data['devices'])}")
+            return True
+        else:
+            print(f"⚠️  Server returned: {response.status_code}")
+            return True  # Server is reachable
+    except requests.exceptions.ConnectionError:
+        print(f"❌ Cannot connect to server: {server_url}")
+        return False
+    except Exception as e:
+        print(f"⚠️  Verification error: {e}")
+        return True  # Continue anyway
+
+
 def main():
     """Loop principal - simula el loop() del ESP32."""
+    parser = argparse.ArgumentParser(description="ESP32-CAM Mock Simulator")
+    parser.add_argument("--server", "-s", default=DEFAULT_SERVER_URL,
+                        help=f"Server URL (default: {DEFAULT_SERVER_URL})")
+    parser.add_argument("--route", "-r", default=DEFAULT_ROUTE_ID,
+                        help=f"Route/Device ID (default: {DEFAULT_ROUTE_ID})")
+    parser.add_argument("--trip", "-t", default=DEFAULT_TRIP_ID,
+                        help="Trip ID to associate frames with (optional)")
+    parser.add_argument("--interval", "-i", type=int, default=SHOT_INTERVAL,
+                        help=f"Seconds between frames (default: {SHOT_INTERVAL})")
+    parser.add_argument("--count", "-c", type=int, default=0,
+                        help="Number of frames to send (0 = infinite)")
+
+    args = parser.parse_args()
+
+    server_url = args.server
+    if not server_url.endswith("/device/upload"):
+        server_url = server_url.rstrip("/") + "/api/v1/video/device/upload"
+
     print("=" * 60)
     print("🎥 ESP32-CAM Mock Simulator")
-    print(f"📡 Servidor: {SERVER_URL}")
-    print(f"🚕 Route ID: {ROUTE_ID}")
-    print(f"⏱️  Intervalo: {SHOT_INTERVAL} segundos")
     print("=" * 60)
-    print("\nEnviando imágenes... (Ctrl+C para detener)\n")
+    print(f"📡 Server:   {server_url}")
+    print(f"🚕 Route ID: {args.route}")
+    if args.trip:
+        print(f"🎫 Trip ID:  {args.trip}")
+    print(f"⏱️  Interval: {args.interval} seconds")
+    if args.count > 0:
+        print(f"🔢 Count:    {args.count} frames")
+    print("=" * 60)
 
+    # Verify connection first
+    print("\n🔍 Verifying server connection...")
+    if not verify_connection(server_url):
+        print("\n❌ Cannot reach server. Please check:")
+        print("   1. Server is running")
+        print("   2. URL is correct")
+        print("   3. Network/firewall allows connection")
+        sys.exit(1)
+
+    print(f"\n📸 Starting stream... (Ctrl+C to stop)\n")
+
+    frames_sent = 0
     try:
         while True:
-            send_image(ROUTE_ID)
-            time.sleep(SHOT_INTERVAL)
+            send_image(server_url, args.route, args.trip)
+            frames_sent += 1
+
+            if args.count > 0 and frames_sent >= args.count:
+                print(f"\n✅ Completed! Sent {frames_sent} frames.")
+                break
+
+            time.sleep(args.interval)
 
     except KeyboardInterrupt:
-        print("\n\n🛑 Simulador detenido")
+        print(f"\n\n🛑 Stopped. Total frames sent: {frames_sent}")
 
 
 if __name__ == "__main__":

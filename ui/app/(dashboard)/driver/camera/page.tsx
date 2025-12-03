@@ -82,7 +82,8 @@ export default function DriverCameraPage() {
         try {
           const routeId = `taxi-${vehicleId.padStart(2, "0")}`;
 
-          await fetch("http://localhost:8000/api/v1/video/device/upload", {
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+          await fetch(`${apiUrl}/video/device/upload`, {
             method: "POST",
             headers: {
               "Content-Type": "image/jpeg",
