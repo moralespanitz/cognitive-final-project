@@ -95,7 +95,7 @@ cat > /tmp/cors.json << 'EOF'
       "AllowedHeaders": ["*"],
       "AllowedMethods": ["GET", "HEAD"],
       "AllowedOrigins": ["*"],
-      "ExpireHeader": 3000,
+      "ExposeHeaders": ["*"],
       "MaxAgeSeconds": 3000
     }
   ]

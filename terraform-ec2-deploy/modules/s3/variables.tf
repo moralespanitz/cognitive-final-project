@@ -11,9 +11,11 @@ variable "environment" {
 variable "frame_processor_lambda_arn" {
   description = "Frame processor Lambda ARN for S3 notifications"
   type        = string
+  default     = null
 }
 
 variable "lambda_s3_permission" {
   description = "Lambda S3 permission resource (for depends_on)"
   type        = any
+  default     = null
 }

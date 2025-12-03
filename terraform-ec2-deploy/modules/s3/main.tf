@@ -37,6 +37,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "frames" {
 }
 
 resource "aws_s3_bucket_notification" "frames" {
+  count = var.frame_processor_lambda_arn != null ? 1 : 0
+
   bucket = aws_s3_bucket.frames.id
 
   lambda_function {
@@ -46,7 +48,7 @@ resource "aws_s3_bucket_notification" "frames" {
     filter_suffix       = ".jpg"
   }
 
-  depends_on = [var.lambda_s3_permission]
+  depends_on = var.lambda_s3_permission != null ? [var.lambda_s3_permission] : []
 }
 
 # Videos Bucket (Long retention with Glacier transition)
