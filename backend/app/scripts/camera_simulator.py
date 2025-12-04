@@ -17,7 +17,8 @@ logger = logging.getLogger(__name__)
 import os
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 VIDEO_UPLOAD_ENDPOINT = f"{BACKEND_URL}/api/v1/video/device/upload"
-VEHICLES = ["taxi-01", "taxi-02", "taxi-03", "taxi-04", "taxi-05", "taxi-06", "taxi-07", "taxi-08"]
+# MVP: Only simulate one vehicle
+VEHICLES = ["taxi-01"]
 FRAME_INTERVAL = 3  # Send frame every 3 seconds
 
 

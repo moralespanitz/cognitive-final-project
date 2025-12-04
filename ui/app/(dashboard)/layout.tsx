@@ -28,8 +28,10 @@ import {
 
 // Route permissions by role
 const adminRoutes = ['/admin', '/vehicles', '/map'];
-const driverRoutes = ['/driver', '/video-monitor'];
-const customerRoutes = ['/book', '/history', '/video-monitor', '/chat'];
+const driverRoutes = ['/driver'];
+const customerRoutes = ['/book', '/history'];
+// Shared routes accessible by all authenticated users
+const sharedRoutes = ['/video-monitor', '/chat', '/trips'];
 
 export default function DashboardLayout({
   children,
@@ -43,7 +45,7 @@ export default function DashboardLayout({
 
   // Determine user role type
   const isAdmin = user && (user.role === 'ADMIN' || user.is_superuser);
-  const isDriver = user && user.role === 'DRIVER';
+  const isDriver = user && (user.role === 'DRIVER' || user.role === 'OPERATOR');
   const isCustomer = user && user.role === 'CUSTOMER';
 
   useEffect(() => {
@@ -66,6 +68,11 @@ export default function DashboardLayout({
     if (!user) return;
 
     const currentPath = pathname;
+
+    // Shared routes are accessible by all authenticated users
+    if (sharedRoutes.some(route => currentPath.startsWith(route))) {
+      return; // Allow access
+    }
 
     // Check if user is trying to access a restricted route
     if (adminRoutes.some(route => currentPath.startsWith(route))) {

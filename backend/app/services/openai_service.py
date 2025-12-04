@@ -69,30 +69,39 @@ Use the provided FAQs to answer common questions when applicable.
             return ""
 
     @staticmethod
-    def get_response(
+    async def get_response_async(
         message: str,
         conversation_history: Optional[List[Dict[str, str]]] = None,
-        context: Optional[Dict] = None
+        context: Optional[Dict] = None,
+        faq_context: str = "",
+        db: Optional[AsyncSession] = None
     ) -> str:
         """
-        Get AI response for user message.
-        
+        Get AI response for user message (async version with FAQ support).
+
         Args:
             message: User's message
             conversation_history: Previous messages in conversation
             context: Additional context (vehicle data, stats, etc.)
-        
+            faq_context: FAQ text to include in system prompt
+            db: Database session
+
         Returns:
             AI-generated response
         """
         try:
+            # Build enhanced system prompt with FAQs
+            system_prompt = ChatService.SYSTEM_PROMPT
+            if faq_context:
+                system_prompt += f"\n\n{faq_context}"
+
             # Build messages array
-            messages = [{"role": "system", "content": ChatService.SYSTEM_PROMPT}]
-            
+            messages = [{"role": "system", "content": system_prompt}]
+
             # Add conversation history if available
             if conversation_history:
                 messages.extend(conversation_history)
-            
+
             # Add context if available
             if context:
                 context_text = ChatService._format_context(context)
@@ -100,10 +109,10 @@ Use the provided FAQs to answer common questions when applicable.
                     "role": "system",
                     "content": f"Current fleet context:\n{context_text}"
                 })
-            
+
             # Add user message
             messages.append({"role": "user", "content": message})
-            
+
             # Call OpenAI API
             response = client.chat.completions.create(
                 model="gpt-4o-mini",  # Using gpt-4o-mini for cost efficiency
@@ -111,9 +120,60 @@ Use the provided FAQs to answer common questions when applicable.
                 temperature=0.7,
                 max_tokens=500
             )
-            
+
             return response.choices[0].message.content
-            
+
+        except Exception as e:
+            logger.error(f"OpenAI API error: {e}")
+            # Fallback response
+            return ChatService._get_fallback_response(message)
+
+    @staticmethod
+    def get_response(
+        message: str,
+        conversation_history: Optional[List[Dict[str, str]]] = None,
+        context: Optional[Dict] = None
+    ) -> str:
+        """
+        Get AI response for user message (legacy sync version).
+
+        Args:
+            message: User's message
+            conversation_history: Previous messages in conversation
+            context: Additional context (vehicle data, stats, etc.)
+
+        Returns:
+            AI-generated response
+        """
+        try:
+            # Build messages array
+            messages = [{"role": "system", "content": ChatService.SYSTEM_PROMPT}]
+
+            # Add conversation history if available
+            if conversation_history:
+                messages.extend(conversation_history)
+
+            # Add context if available
+            if context:
+                context_text = ChatService._format_context(context)
+                messages.append({
+                    "role": "system",
+                    "content": f"Current fleet context:\n{context_text}"
+                })
+
+            # Add user message
+            messages.append({"role": "user", "content": message})
+
+            # Call OpenAI API
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",  # Using gpt-4o-mini for cost efficiency
+                messages=messages,
+                temperature=0.7,
+                max_tokens=500
+            )
+
+            return response.choices[0].message.content
+
         except Exception as e:
             logger.error(f"OpenAI API error: {e}")
             # Fallback response

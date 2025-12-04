@@ -48,10 +48,15 @@ async def chat(
         # If context fetch fails, continue without it
         pass
 
-    # Get AI response with context
-    ai_response = ChatService.get_response(
+    # Load FAQs from database
+    faq_context = await ChatService.load_faqs(db)
+
+    # Get AI response with context and FAQs
+    ai_response = await ChatService.get_response_async(
         message=message.message,
-        context=context
+        context=context,
+        faq_context=faq_context,
+        db=db
     )
 
     return ChatResponse(
