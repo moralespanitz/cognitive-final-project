@@ -60,9 +60,9 @@ async def seed_all():
             print("🛣️  Creating trips...")
             await seed_trips(db, vehicles, drivers)
 
-            # 8. Create Incidents
-            print("⚠️  Creating incidents...")
-            await seed_incidents(db, vehicles, drivers)
+            # 8. Create Incidents (disabled - model doesn't exist)
+            # print("⚠️  Creating incidents...")
+            # await seed_incidents(db, vehicles, drivers)
 
             await db.commit()
             print("\n✅ Database seeding completed successfully!")
