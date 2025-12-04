@@ -61,6 +61,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Audit middleware for automatic logging of admin actions
+from .middleware.audit import AuditMiddleware, RequestStateMiddleware
+app.add_middleware(AuditMiddleware)
+app.add_middleware(RequestStateMiddleware)
+
 
 # Exception handlers
 @app.exception_handler(RequestValidationError)
@@ -116,6 +121,7 @@ from .api.v1.devices import router as devices_router
 from .api.v1.faqs import router as faqs_router
 from .api.v1.images import router as images_router
 from .api.v1.faces import router as faces_router
+from .api.v1.admin import router as admin_router
 
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(users_router, prefix="/api/v1/users", tags=["Users"])
@@ -127,6 +133,7 @@ app.include_router(devices_router, prefix="/api/v1/devices", tags=["Devices"])
 app.include_router(faqs_router, prefix="/api/v1/faqs", tags=["FAQs"])
 app.include_router(images_router, prefix="/api/v1/images", tags=["Trip Images"])
 app.include_router(faces_router, prefix="/api/v1/faces", tags=["Face Recognition"])
+app.include_router(admin_router, prefix="/api/v1/admin", tags=["Admin"])
 
 
 # WebSocket endpoints

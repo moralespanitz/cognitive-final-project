@@ -181,13 +181,12 @@ export default function MyTripsPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-lg font-bold text-green-600">
-                        ${parseFloat(trip.fare || trip.estimated_fare || '0').toFixed(2)}
+                        ${parseFloat(String(trip.fare || trip.estimated_fare || '0')).toFixed(2)}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {trip.fare && parseFloat(trip.fare) > 0 ? 'Final fare' : 'Estimated'}
+                        {trip.fare && parseFloat(String(trip.fare)) > 0 ? 'Final fare' : 'Estimated'}
                       </p>
-                    </div>
-                  </div>
+                    </div>                  </div>
 
                   <div className="grid md:grid-cols-2 gap-4 mb-4">
                     <div className="flex items-start gap-2">
@@ -212,8 +211,8 @@ export default function MyTripsPage() {
                         <ClockIcon className="w-4 h-4" />
                         {formatDate(trip.created_at)}
                       </span>
-                      {parseFloat(trip.distance || '0') > 0 && (
-                        <span>{parseFloat(trip.distance || '0').toFixed(1)} km</span>
+                      {parseFloat(String(trip.distance || '0')) > 0 && (
+                        <span>{parseFloat(String(trip.distance || '0')).toFixed(1)} km</span>
                       )}
                       {trip.duration > 0 && (
                         <span>{trip.duration} min</span>

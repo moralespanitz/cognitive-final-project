@@ -8,6 +8,7 @@ from ..models.tracking import GPSLocation
 from ..models.device import Device
 from ..models.faq import FAQ
 from ..models.image import TripImage
+from ..models.admin_log import AdminLog, SystemMetric
 
 
 class UserAdmin(ModelView, model=User):
@@ -192,6 +193,61 @@ class TripImageAdmin(ModelView, model=TripImage):
     can_delete = True
 
 
+class AdminLogAdmin(ModelView, model=AdminLog):
+    """Admin Log admin view for audit trail."""
+    name = "Admin Log"
+    name_plural = "Admin Logs"
+    icon = "fa-solid fa-list-check"
+
+    column_list = [
+        AdminLog.id,
+        AdminLog.username,
+        AdminLog.action,
+        AdminLog.level,
+        AdminLog.resource_type,
+        AdminLog.resource_id,
+        AdminLog.message,
+        AdminLog.ip_address,
+        AdminLog.endpoint,
+        AdminLog.method,
+        AdminLog.created_at,
+    ]
+    column_searchable_list = [AdminLog.username, AdminLog.message, AdminLog.endpoint, AdminLog.ip_address]
+    column_sortable_list = [AdminLog.id, AdminLog.created_at, AdminLog.level, AdminLog.action]
+    column_default_sort = [(AdminLog.created_at, False)]
+    column_filters = [AdminLog.level, AdminLog.action, AdminLog.resource_type, AdminLog.username]
+
+    # Read-only view - logs should not be modified
+    can_create = False
+    can_edit = False
+    can_delete = True  # Allow cleanup of old logs
+
+
+class SystemMetricAdmin(ModelView, model=SystemMetric):
+    """System Metric admin view."""
+    name = "System Metric"
+    name_plural = "System Metrics"
+    icon = "fa-solid fa-chart-line"
+
+    column_list = [
+        SystemMetric.id,
+        SystemMetric.metric_name,
+        SystemMetric.metric_type,
+        SystemMetric.value,
+        SystemMetric.unit,
+        SystemMetric.recorded_at,
+    ]
+    column_searchable_list = [SystemMetric.metric_name, SystemMetric.metric_type]
+    column_sortable_list = [SystemMetric.id, SystemMetric.recorded_at, SystemMetric.metric_name]
+    column_default_sort = [(SystemMetric.recorded_at, False)]
+    column_filters = [SystemMetric.metric_name, SystemMetric.metric_type]
+
+    # Read-only view
+    can_create = False
+    can_edit = False
+    can_delete = True  # Allow cleanup
+
+
 def setup_admin(admin):
     """Register all admin views."""
     admin.add_view(UserAdmin)
@@ -202,3 +258,5 @@ def setup_admin(admin):
     admin.add_view(DeviceAdmin)
     admin.add_view(FAQAdmin)
     admin.add_view(TripImageAdmin)
+    admin.add_view(AdminLogAdmin)
+    admin.add_view(SystemMetricAdmin)

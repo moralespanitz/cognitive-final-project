@@ -7,6 +7,12 @@ from .vehicle import TripCreate, TripUpdate, TripResponse
 from .tracking import GPSLocationCreate, GPSLocationResponse
 from .video import VideoArchiveResponse, VideoStreamResponse
 from .chat import ChatMessage, ChatResponse
+from .admin import (
+    AdminLogCreate, AdminLogResponse, AdminLogListResponse,
+    DashboardStatsResponse, TripStats, VehicleStats, DriverStats,
+    UserStats, DeviceStats, SystemHealthStats, RevenueStatsResponse,
+    LogLevel, ActionType, LogFilterParams, StatsFilterParams
+)
 
 __all__ = [
     "UserCreate", "UserUpdate", "UserResponse", "UserLogin",
@@ -17,4 +23,8 @@ __all__ = [
     "GPSLocationCreate", "GPSLocationResponse",
     "VideoArchiveResponse", "VideoStreamResponse",
     "ChatMessage", "ChatResponse",
+    "AdminLogCreate", "AdminLogResponse", "AdminLogListResponse",
+    "DashboardStatsResponse", "TripStats", "VehicleStats", "DriverStats",
+    "UserStats", "DeviceStats", "SystemHealthStats", "RevenueStatsResponse",
+    "LogLevel", "ActionType", "LogFilterParams", "StatsFilterParams",
 ]

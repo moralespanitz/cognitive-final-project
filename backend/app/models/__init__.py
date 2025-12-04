@@ -9,6 +9,7 @@ from .video import VideoStream, VideoArchive
 from .device import Device
 from .faq import FAQ
 from .image import TripImage
+from .admin_log import AdminLog, SystemMetric, LogLevel, ActionType
 
 __all__ = [
     "User",
@@ -21,4 +22,8 @@ __all__ = [
     "Device",
     "FAQ",
     "TripImage",
+    "AdminLog",
+    "SystemMetric",
+    "LogLevel",
+    "ActionType",
 ]

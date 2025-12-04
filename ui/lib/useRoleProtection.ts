@@ -57,12 +57,12 @@ export function useRoleProtection() {
 
     // Check exact match first
     if (routePermissions[pathname]) {
-      hasAccess = routePermissions[pathname].includes(userRole) || user.is_superuser;
+      hasAccess = routePermissions[pathname].includes(userRole) || (user.is_superuser ?? false);
     } else {
       // Check prefix matches (for dynamic routes like /trip/[id])
       for (const [route, roles] of Object.entries(routePermissions)) {
         if (pathname.startsWith(route) && route !== '/') {
-          hasAccess = roles.includes(userRole) || user.is_superuser;
+          hasAccess = roles.includes(userRole) || (user.is_superuser ?? false);
           break;
         }
       }
@@ -80,5 +80,5 @@ export function useRoleProtection() {
     }
   }, [user, pathname, router]);
 
-  return { user, isAdmin: user?.role === 'ADMIN' || user?.is_superuser };
+  return { user, isAdmin: user?.role === 'ADMIN' || (user?.is_superuser ?? false) };
 }
