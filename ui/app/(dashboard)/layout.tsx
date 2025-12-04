@@ -113,7 +113,7 @@ export default function DashboardLayout({
     allNavigation = [
       { name: 'Dashboard', href: '/', icon: LayoutDashboardIcon },
       { name: 'Analytics', href: '/admin/analytics', icon: BarChart3Icon },
-      { name: 'Admin Logs', href: '/admin/logs', icon: FileTextIcon },
+      { name: 'Admin Logs', href: '/admin/admin-logs', icon: FileTextIcon },
       { name: 'Live Map', href: '/map', icon: MapIcon },
       { name: 'Vehicles', href: '/vehicles', icon: CarIcon },
       { name: 'Video Monitor', href: '/video-monitor', icon: MonitorIcon },
