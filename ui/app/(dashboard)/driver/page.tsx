@@ -132,7 +132,8 @@ export default function DriverPanelPage() {
   const fetchTrips = async () => {
     try {
       const token = localStorage.getItem("access_token");
-      const response = await fetch("http://localhost:8000/api/v1/trips", {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+      const response = await fetch(`${apiUrl}/trips`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
