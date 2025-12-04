@@ -23,32 +23,55 @@ export default function DriverPanelPage() {
   const [loading, setLoading] = useState(true);
   const [wsConnected, setWsConnected] = useState(false);
   const [newTripAlert, setNewTripAlert] = useState<Trip | null>(null);
+  const [driverId, setDriverId] = useState<number | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
-  // Get driver ID from user
-  const getDriverId = () => {
-    // For demo: use user.id directly as driver_id mapping
-    // driver1 (user_id=2) -> driver_id=1, driver2 (user_id=3) -> driver_id=2, etc.
-    // But since drivers table has its own IDs, we need to query or use a mapping
-    // For now, let's try to match based on user ID being close to driver ID
-    if (user?.username?.startsWith('driver')) {
-      const num = parseInt(user.username.replace('driver', ''));
-      return isNaN(num) ? user?.id || 1 : num;
-    }
-    return user?.id || 1;
-  };
+  // Fetch driver profile and set status to ON_DUTY
+  useEffect(() => {
+    const initializeDriver = async () => {
+      if (!user) return;
+
+      try {
+        const token = localStorage.getItem("access_token");
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+
+        // Get driver profile
+        const response = await fetch(`${apiUrl}/drivers/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (response.ok) {
+          const driver = await response.json();
+          setDriverId(driver.id);
+
+          // Set status to ON_DUTY if not already
+          if (driver.status !== "ON_DUTY") {
+            await fetch(`${apiUrl}/drivers/${driver.id}/status?driver_status=ON_DUTY`, {
+              method: "PATCH",
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            console.log("Driver status set to ON_DUTY");
+          }
+        }
+      } catch (error) {
+        console.error("Error initializing driver:", error);
+      }
+    };
+
+    initializeDriver();
+  }, [user]);
 
   // Connect to WebSocket for real-time trip notifications
   useEffect(() => {
-    if (!user) return;
+    if (!user || !driverId) return;
 
-    const driverId = getDriverId();
     let ws: WebSocket | null = null;
     let reconnectTimeout: NodeJS.Timeout;
 
     const connect = () => {
       try {
-        ws = new WebSocket(`ws://localhost:8000/ws/trips/driver/${driverId}`);
+        const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000";
+        ws = new WebSocket(`${wsUrl}/ws/trips/driver/${driverId}`);
 
         ws.onopen = () => {
           console.log("🚗 Driver WebSocket connected");
@@ -122,7 +145,7 @@ export default function DriverPanelPage() {
         ws.close();
       }
     };
-  }, [user]);
+  }, [user, driverId]);
 
   // Initial fetch of trips
   useEffect(() => {
@@ -161,7 +184,8 @@ export default function DriverPanelPage() {
   const handleAction = async (tripId: number, action: string) => {
     try {
       const token = localStorage.getItem("access_token");
-      const response = await fetch(`http://localhost:8000/api/v1/trips/${tripId}/${action}`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+      const response = await fetch(`${apiUrl}/trips/${tripId}/${action}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });

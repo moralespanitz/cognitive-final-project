@@ -27,9 +27,9 @@ import {
 } from 'lucide-react';
 
 // Route permissions by role
-const adminRoutes = ['/admin', '/vehicles', '/map', '/chat'];
+const adminRoutes = ['/admin', '/vehicles', '/map'];
 const driverRoutes = ['/driver', '/video-monitor'];
-const customerRoutes = ['/book', '/history', '/video-monitor'];
+const customerRoutes = ['/book', '/history', '/video-monitor', '/chat'];
 
 export default function DashboardLayout({
   children,
@@ -127,6 +127,7 @@ export default function DashboardLayout({
       { name: 'Book Taxi', href: '/book', icon: Car },
       { name: 'My Trips', href: '/trips', icon: HistoryIcon },
       { name: 'Video Monitor', href: '/video-monitor', icon: MonitorIcon },
+      { name: 'AI Chat', href: '/chat', icon: MessageSquareIcon },
     ];
   } else {
     // Fallback for other roles (OPERATOR, etc.)

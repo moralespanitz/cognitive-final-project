@@ -2,7 +2,7 @@
 Vehicles, Drivers, and Trips API endpoints.
 """
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List
@@ -180,6 +180,22 @@ async def list_drivers(
     return drivers
 
 
+@router.get("/drivers/me", response_model=DriverResponse)
+async def get_my_driver_profile(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get current user's driver profile."""
+    stmt = select(Driver).where(Driver.user_id == current_user.id)
+    result = await db.execute(stmt)
+    driver = result.scalar_one_or_none()
+
+    if not driver:
+        raise NotFoundException(detail="Driver profile not found for current user")
+
+    return driver
+
+
 @router.get("/drivers/{driver_id}", response_model=DriverResponse)
 async def get_driver(
     driver_id: int,
@@ -193,6 +209,43 @@ async def get_driver(
 
     if not driver:
         raise NotFoundException(detail="Driver not found")
+
+    return driver
+
+
+@router.patch("/drivers/{driver_id}/status", response_model=DriverResponse)
+async def update_driver_status(
+    driver_id: int,
+    driver_status: str = Query(..., description="Driver status: ON_DUTY, OFF_DUTY, or BUSY"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Update driver status (ON_DUTY, OFF_DUTY, BUSY)."""
+    stmt = select(Driver).where(Driver.id == driver_id)
+    result = await db.execute(stmt)
+    driver = result.scalar_one_or_none()
+
+    if not driver:
+        raise NotFoundException(detail="Driver not found")
+
+    # Only the driver themselves can update their status
+    if driver.user_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to update this driver's status"
+        )
+
+    # Validate status
+    valid_statuses = ["ON_DUTY", "OFF_DUTY", "BUSY"]
+    if driver_status not in valid_statuses:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}"
+        )
+
+    driver.status = driver_status
+    await db.commit()
+    await db.refresh(driver)
 
     return driver
 
